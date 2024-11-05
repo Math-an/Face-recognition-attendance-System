@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <title>User List</title>
+</head>
+<body class="bg-gray-100">
+    <div class="container mx-auto mt-10 p-6 bg-white shadow-lg rounded-lg">
+        <h1 class="text-3xl font-extrabold text-center mb-6 text-gray-800">User List</h1>
+        <!-- templates/attendance/user_list.html -->
+<table class="min-w-full bg-white border-collapse overflow-hidden shadow rounded-lg">
+    <thead class="bg-gray-50">
+        <tr>
+            <th class="py-3 px-5 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider border-b">Name</th>
+            <th class="py-3 px-5 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider border-b">Phone</th>
+            <th class="py-3 px-5 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider border-b">Email</th>
+            <th class="py-3 px-5 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider border-b">Role</th>
+            <th class="py-3 px-5 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider border-b">Actions</th>
+        </tr>
+    </thead>
+    <tbody class="bg-white divide-y divide-gray-200">
+        {% for user in users %}
+        <tr class="hover:bg-gray-50">
+            <td class="py-4 px-6 whitespace-nowrap text-sm font-medium text-gray-900">{{ user.name }}</td>
+            <td class="py-4 px-6 whitespace-nowrap text-sm text-gray-700">{{ user.phone }}</td>
+            <td class="py-4 px-6 whitespace-nowrap text-sm text-gray-700">{{ user.email }}</td>
+            <td class="py-4 px-6 whitespace-nowrap text-sm text-gray-700">{{ user.role }}</td>
+            <td class="py-4 px-6 whitespace-nowrap text-sm">
+                <a href="{% url 'edit_user' user.id %}" class="text-indigo-600 hover:text-indigo-900 font-semibold">Edit</a>
+                <form action="{% url 'delete_user' user.id %}" method="POST" class="inline ml-3">
+                    {% csrf_token %}
+                    <button type="submit" class="text-red-600 hover:text-red-800 font-semibold">Delete</button>
+                </form>
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+    </div>
+</body>
+</html>

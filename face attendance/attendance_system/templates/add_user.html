@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Add User</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+</head>
+<body class="bg-gray-100">
+    <div class="container mx-auto mt-10">
+        <h1 class="text-2xl font-bold text-center mb-4">Add User</h1>
+
+        <!-- Form to add user details -->
+        <form id="user-form" method="POST" enctype="multipart/form-data" action="{% url 'add_user' %}">
+
+            {% csrf_token %}
+            <div class="mb-4">
+                <label class="block text-gray-700 text-sm font-bold mb-2">Name</label>
+                <input type="text" name="name" id="name" required class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+            </div>
+            <div class="mb-4">
+                <label class="block text-gray-700 text-sm font-bold mb-2">Phone Number</label>
+                <input type="text" name="phone_number" id="phone" required class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+            </div>
+            <div class="mb-4">
+                <label class="block text-gray-700 text-sm font-bold mb-2">Email</label>
+                <input type="email" name="email" id="email" required class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+            </div>
+            <div class="mb-4">
+                <label class="block text-gray-700 text-sm font-bold mb-2">Password</label>
+                <input type="password" name="password" id="password" required class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+            </div>
+            <div class="mb-4">
+                <label class="block text-gray-700 text-sm font-bold mb-2">Role</label>
+                <select name="role" id="role" required class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+                    <option value="admin">Admin</option>
+                    <option value="user">User</option>
+                </select>
+            </div>
+            
+            <div class="flex justify-center">
+                <button type="button" id="capture-face-btn" class="bg-blue-500 text-white px-4 py-2 rounded mr-4">Capture Face</button>
+                <button type="submit" class="bg-green-500 text-white px-4 py-2 rounded">Add User</button>
+            </div>
+        </form>
+
+        <!-- Video Stream for Face Capture -->
+        <div class="hidden" id="video-container">
+            <video id="video" width="320" height="240" autoplay></video>
+            <canvas id="canvas" width="320" height="240" style="display:none;"></canvas>
+            <div id="progress-container" class="hidden">
+                <div id="progress-bar" style="width: 0%; height: 20px; background-color: green;"></div>
+                <p id="progress-text">0/30 Photos Taken</p>
+            </div>
+        </div>
+
+        <script>
+            const video = document.getElementById('video');
+            const canvas = document.getElementById('canvas');
+            const captureFaceBtn = document.getElementById('capture-face-btn');
+            const progressContainer = document.getElementById('progress-container');
+            const progressBar = document.getElementById('progress-bar');
+            const progressText = document.getElementById('progress-text');
+            const nameInput = document.getElementById('name');
+
+            let photoCount = 0;
+            const totalPhotos = 30;
+            const faceData = [];
+
+            captureFaceBtn.addEventListener('click', function() {
+                document.getElementById('video-container').classList.remove('hidden');
+                progressContainer.classList.remove('hidden');
+                navigator.mediaDevices.getUserMedia({ video: true })
+                    .then(stream => {
+                        video.srcObject = stream;
+                        startPhotoCapture();
+                    });
+            });
+
+            function startPhotoCapture() {
+                const interval = setInterval(() => {
+                    if (photoCount < totalPhotos) {
+                        const context = canvas.getContext('2d');
+                        context.drawImage(video, 0, 0, 320, 240);
+                        canvas.toBlob((blob) => {
+                            faceData.push(blob);
+                            photoCount++;
+                            updateProgress();
+
+                            if (photoCount === totalPhotos) {
+                                clearInterval(interval);
+                                video.srcObject.getTracks().forEach(track => track.stop());
+                                alert("Face data captured and saved!");
+
+                                sendImagesToServer(faceData, nameInput.value);
+                            }
+                        }, 'image/jpeg');
+                    }
+                }, 1000);
+            }
+
+            function updateProgress() {
+                const progressPercentage = (photoCount / totalPhotos) * 100;
+                progressBar.style.width = progressPercentage + '%';
+                progressText.innerText = `${photoCount}/${totalPhotos} Photos Taken`;
+            }
+
+            function sendImagesToServer(images, userName) {
+                const ws = new WebSocket('ws://localhost:8767');
+                ws.onopen = () => {
+                    images.forEach(image => {
+                        const reader = new FileReader();
+                        reader.onloadend = function () {
+                            const arrayBuffer = reader.result;
+                            const usernameBuffer = new TextEncoder().encode(userName);
+                            const usernameLength = new Uint32Array([usernameBuffer.length]);
+                            const combinedBuffer = new Uint8Array(usernameLength.byteLength + usernameBuffer.byteLength + arrayBuffer.byteLength);
+                            combinedBuffer.set(new Uint8Array(usernameLength.buffer), 0);
+                            combinedBuffer.set(usernameBuffer, usernameLength.byteLength);
+                            combinedBuffer.set(new Uint8Array(arrayBuffer), usernameLength.byteLength + usernameBuffer.byteLength);
+                            ws.send(combinedBuffer.buffer);
+                        };
+                        reader.readAsArrayBuffer(image);
+                    });
+                    console.log("All images sent to the server.");
+                };
+
+                ws.onmessage = (event) => {
+                    console.log("Message from server:", event.data);
+                    if (event.data === "Model trained successfully!") {
+                        alert("Face recognition model trained and saved!");
+                    }
+                };
+
+                ws.onerror = (error) => {
+                    console.log("WebSocket error:", error);
+                };
+
+                ws.onclose = () => {
+                    console.log("WebSocket connection closed.");
+                };
+            }
+        </script>
+    </div>
+</body>
+</html>

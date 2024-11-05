@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <title>Attendance Report</title>
+</head>
+<body class="bg-gray-100">
+
+    <!-- Navbar -->
+    <nav class="bg-blue-600 p-4 shadow-md">
+        <h1 class="text-white text-2xl font-bold text-center">Attendance Report</h1>
+    </nav>
+
+    <div class="container mx-auto mt-10">
+        <!-- Filter Form -->
+        <form method="GET" action="{% url 'admin_attendance_report' %}" class="flex flex-col md:flex-row md:items-center space-y-4 md:space-y-0 md:space-x-4 mb-6">
+            <label class="flex flex-col">
+                <span class="font-semibold">Date:</span>
+                <input type="date" name="date" class="border-gray-300 border rounded py-2 px-3" value="{{ request.GET.date }}">
+            </label>
+            <label class="flex flex-col">
+                <span class="font-semibold">Status:</span>
+                <select name="status" class="border-gray-300 border rounded py-2 px-3">
+                    <option value="">All</option>
+                    <option value="Present" {% if request.GET.status == "Present" %}selected{% endif %}>Present</option>
+                    <option value="Absent" {% if request.GET.status == "Absent" %}selected{% endif %}>Absent</option>
+                </select>
+            </label>
+            <button type="submit" class="bg-blue-600 text-white font-bold py-2 px-4 rounded">Filter</button>
+        </form>
+
+        <!-- Attendance Table -->
+        <div class="bg-white p-6 rounded-lg shadow-md">
+            <table class="min-w-full border">
+                <thead>
+                    <tr class="bg-gray-200">
+                        <th class="py-2 px-4 border">User ID</th>
+                        <th class="py-2 px-4 border">Name</th>
+                        <th class="py-2 px-4 border">Date</th>
+                        <th class="py-2 px-4 border">Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for record in attendance_records %}
+                    <tr>
+                        <td class="py-2 px-4 border">{{ record.user_id }}</td>
+                        <td class="py-2 px-4 border">{{ record.user.username }}</td>
+                        <td class="py-2 px-4 border">{{ record.date }}</td>
+                        {% if record.is_present %}
+                            <td class="py-2 px-4 border">Present</td>
+                        {% else %}
+                            <td class="py-2 px-4 border">Absent</td>
+                        {% endif %}
+                        
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Download CSV Button -->
+        <div class="flex justify-end mt-4">
+            <a href="{% url 'admin_attendance_report' %}?download=csv" class="bg-green-600 text-white font-bold py-2 px-4 rounded">Download as CSV</a>
+        </div>
+    </div>
+
+</body>
+</html>

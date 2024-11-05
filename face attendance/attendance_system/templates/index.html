@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <title>Face Recognition</title>
+</head>
+
+<body class="bg-gray-100">
+
+    <!-- Navbar -->
+    <nav class="bg-blue-600 p-4 shadow-md">
+        <h1 class="text-white text-2xl font-bold text-center">Face Recognition Attendance System</h1>
+    </nav>
+
+    <div class="flex flex-col items-center justify-center mt-10">
+
+        <!-- Webcam Section -->
+        <div class="w-full max-w-md">
+            <video id="webcam" class="border border-gray-300 rounded w-full h-64" autoplay playsinline></video>
+        </div>
+
+        <!-- Capture Button -->
+        <button id="capture"
+            class="mt-4 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">
+            Capture Photo
+        </button>
+
+        <!-- Result Display -->
+        <div id="result" class="mt-6 w-full max-w-xs text-center text-gray-800"></div>
+
+        <!-- Login Button -->
+        <div class="mt-4">
+            <a href="{% url 'login' %}"
+                class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">
+                Go to Login
+            </a>
+        </div>
+
+    </div>
+
+    <script>
+        const video = document.getElementById('webcam');
+        const captureButton = document.getElementById('capture');
+        const resultDiv = document.getElementById('result');
+        let socket;
+
+        // Set up the webcam
+        async function setupWebcam() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                video.srcObject = stream;
+            } catch (error) {
+                console.error("Error accessing the webcam: ", error);
+                alert("Unable to access the webcam. Please check your camera settings.");
+            }
+        }
+
+        // Initialize the webcam on page load
+        setupWebcam();
+
+        // Capture the current frame from the webcam
+        function captureFrame() {
+            const canvas = document.createElement('canvas');
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            const context = canvas.getContext('2d');
+            context.drawImage(video, 0, 0, 160, 160);
+            return canvas.toDataURL('image/jpeg');  // Convert to base64 image
+        }
+
+        // Set up WebSocket connection
+        function setupWebSocket() {
+            socket = new WebSocket('ws://localhost:8766');
+
+            socket.onmessage = (event) => {
+                // Display the response from the server
+                resultDiv.innerHTML = `<p class="text-green-600 font-semibold">Recognized: ${event.data}</p>`;
+                if (event.data != "No face detected.") {
+                    const xhr = new XMLHttpRequest();
+                    const data = event.data;
+                    console.log(data);
+
+                    xhr.open('GET', `http://localhost:8000/mark-attendance/${encodeURIComponent(data)}`, true);
+                    xhr.onreadystatechange = function () {
+                        if (xhr.readyState === 4 && xhr.status === 200) {
+                            console.log(xhr.responseText);
+                        }
+                    };
+                    xhr.send();
+                }
+            };
+
+            socket.onerror = (error) => {
+                console.error('WebSocket error:', error);
+                resultDiv.innerHTML = `<p class="text-red-600">Error in WebSocket connection.</p>`;
+            };
+
+
+            socket.onclose = () => {
+                console.log('WebSocket connection closed');
+            };
+        }
+
+        // Capture photo and send it to WebSocket server
+        captureButton.addEventListener('click', () => {
+            const image = captureFrame();
+            const binaryData = atob(image.split(',')[1]); // Convert base64 to binary
+
+            const arrayBuffer = new Uint8Array(binaryData.length);
+            for (let i = 0; i < binaryData.length; i++) {
+                arrayBuffer[i] = binaryData.charCodeAt(i);
+            }
+
+            if (socket && socket.readyState === WebSocket.OPEN) {
+                socket.send(arrayBuffer.buffer); // Send image as binary data
+                resultDiv.innerHTML = `<p class="text-gray-600">Sending image for recognition...</p>`;
+            } else {
+                alert('WebSocket connection is not open');
+            }
+        });
+
+        // Initialize WebSocket on page load
+        setupWebSocket();
+
+    </script>
+</body>
+
+</html>
